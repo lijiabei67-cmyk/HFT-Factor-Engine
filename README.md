@@ -44,7 +44,7 @@ Processes Level-2 high-frequency market data across all CSI 300 constituents —
 
 ## 20 Alpha Factors
 
-The `Factor` interface defines a unified contract — each implementation receives the current and previous snapshot plus a context object:
+`FastAlphaComputer` evaluates all 20 factors in a single pass over each tick — fed by a per-stock `FactorContext` that holds rolling windows and the previous snapshot, eliminating per-factor virtual dispatch:
 
 ```
 alpha_1  – alpha_5    Price / volume microstructure
@@ -72,32 +72,32 @@ Measured on LocalJobRunner, 8 Map / 8 Reduce slots, Docker container, Short-Circ
 
 ```
 hft-factor-engine/
-├── src/
-│   ├── parser/
-│   │   └── ByteSnapshotParser.java    # Zero-copy byte-level field extraction
-│   ├── io/
-│   │   ├── StockTimeKey.java          # Composite key (day + code + time)
-│   │   ├── SnapshotWritable.java      # Compact 272-byte tick container
-│   │   └── FactorVectorWritable.java  # 20-factor double vector
-│   ├── factor/
-│   │   ├── Factor.java                # Factor interface (id, code, compute)
-│   │   └── impl/                      # 20 Alpha implementations
-│   ├── mapreduce/
-│   │   ├── FactorPerStockMapper.java
-│   │   ├── FactorPerStockReducer.java
-│   │   ├── CrossSectionAvgMapper.java
-│   │   ├── CrossSectionAvgCombiner.java
-│   │   ├── CrossSectionAvgReducer.java
-│   │   └── AppDriver.java             # Pipeline orchestration + tuning
-│   └── util/
-│       └── MathUtil.java              # Inlined math + reciprocal table
-├── conf/
-│   └── factor-config.xml
-├── data/
-│   └── README.md                      # Data format & HDFS ingestion notes
-├── report/
-│   └── report.pdf                     # Full technical report (Chinese)
-└── README.md
+└── src/main/java/org/example/
+    ├── AppDriver.java                  # Pipeline orchestration + JVM tuning
+    ├── io/
+    │   └── ByteSnapshotParser.java     # Zero-copy byte-level field extraction
+    ├── model/
+    │   ├── Snapshot.java               # In-memory tick representation
+    │   ├── SnapshotWritable.java       # Compact 272-byte tick container
+    │   ├── StockTimeKey.java           # Composite key (code + day + time)
+    │   ├── DayTimeKey.java             # Cross-section grouping key
+    │   └── FactorVectorWritable.java   # 20-factor double vector
+    ├── factor/
+    │   ├── FactorContext.java          # Per-stock state (rolling windows, prev tick)
+    │   └── FastAlphaComputer.java      # Inlined 20-factor computation kernel
+    ├── mr/
+    │   ├── job1/                       # Per-stock factor pass
+    │   │   ├── FactorPerStockMapper.java
+    │   │   ├── FactorPerStockReducer.java
+    │   │   ├── StockPartitioner.java        # Route by stock code
+    │   │   └── StockGroupingComparator.java # Group by stock, sort by time
+    │   └── job2/                       # Cross-sectional aggregation
+    │       ├── CrossSectionAvgMapper.java
+    │       ├── CrossSectionAvgCombiner.java
+    │       └── CrossSectionAvgReducer.java
+    └── util/
+        ├── MathUtil.java               # Inlined math + reciprocal table
+        └── TimeUtil.java               # Trading-time parsing & bucketing
 ```
 
 ## Quick Start
