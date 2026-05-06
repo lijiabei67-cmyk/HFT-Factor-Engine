@@ -95,10 +95,7 @@ hft-factor-engine/
     │       ├── CrossSectionAvgMapper.java
     │       ├── CrossSectionAvgCombiner.java
     │       └── CrossSectionAvgReducer.java
-    └── util/
-        ├── MathUtil.java               # Inlined math + reciprocal table
-        └── TimeUtil.java               # Trading-time parsing & bucketing
-```
+    
 
 ## Quick Start
 
